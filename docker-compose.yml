@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel-showcase-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./storage/app:/var/www/html/storage/app
+      - ./storage/framework/cache:/var/www/html/storage/framework/cache
+      - ./storage/framework/sessions:/var/www/html/storage/framework/sessions
+      - ./storage/framework/views:/var/www/html/storage/framework/views
+    networks:
+      - laravel-showcase
+    depends_on:
+      - mysql
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: laravel-showcase-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/sites/:/etc/nginx/sites-available
+    networks:
+      - laravel-showcase
+    depends_on:
+      - app
+
+  mysql:
+    image: mysql:8.0
+    container_name: laravel-showcase-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: laravel_showcase
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_PASSWORD: secret
+      MYSQL_USER: laravel
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - laravel-showcase
+
+  redis:
+    image: redis:7-alpine
+    container_name: laravel-showcase-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - laravel-showcase
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: laravel-showcase-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8080:80"
+    networks:
+      - laravel-showcase
+    depends_on:
+      - mysql
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: laravel-showcase-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - laravel-showcase
+
+  supervisor:
+    build:
+      context: .
+      dockerfile: Dockerfile.supervisor
+    container_name: laravel-showcase-supervisor
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./storage/app:/var/www/html/storage/app
+      - ./storage/framework/cache:/var/www/html/storage/framework/cache
+      - ./storage/framework/sessions:/var/www/html/storage/framework/sessions
+      - ./storage/framework/views:/var/www/html/storage/framework/views
+      - ./docker/supervisor/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf
+    networks:
+      - laravel-showcase
+    depends_on:
+      - mysql
+      - redis
+
+  horizon:
+    build:
+      context: .
+      dockerfile: Dockerfile.horizon
+    container_name: laravel-showcase-horizon
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./storage/app:/var/www/html/storage/app
+      - ./storage/framework/cache:/var/www/html/storage/framework/cache
+      - ./storage/framework/sessions:/var/www/html/storage/framework/sessions
+      - ./storage/framework/views:/var/www/html/storage/framework/views
+    networks:
+      - laravel-showcase
+    depends_on:
+      - mysql
+      - redis
+
+networks:
+  laravel-showcase:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
